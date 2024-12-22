@@ -1,0 +1,161 @@
+// manifest.json
+{
+  "manifest_version": 3,
+  "name": "Trade Risk Manager",
+  "version": "1.0",
+  "description": "A trade risk management tool for various trading types",
+  "permissions": ["activeTab", "storage"],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
+
+// popup.html
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Trade Risk Manager</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="w-96 p-4 bg-gray-50">
+  <div class="space-y-4">
+    <h1 class="text-xl font-bold text-gray-800">Trade Risk Manager</h1>
+    
+    <!-- Trade Type Selection -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Trade Type</label>
+      <select id="tradeType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+        <option value="options">Options</option>
+        <option value="crypto">Crypto Futures</option>
+        <option value="forex">Forex</option>
+      </select>
+    </div>
+
+    <!-- Trade Parameters -->
+    <div id="tradeParams" class="space-y-3">
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Initial Stake (₦)</label>
+        <input type="number" id="initialStake" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+      </div>
+      
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Maximum Stake (₦)</label>
+        <input type="number" id="maxStake" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+      </div>
+      
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Target Amount (₦)</label>
+        <input type="number" id="targetAmount" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700">Profit Rate (%)</label>
+        <input type="number" id="profitRate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" value="90">
+      </div>
+      
+      <button id="generateTable" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+        Generate Trade Table
+      </button>
+    </div>
+
+    <!-- Trade Table -->
+    <div id="tradeTable" class="hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trade No.</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stake (₦)</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit (₦)</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance (₦)</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Goal</th>
+            </tr>
+          </thead>
+          <tbody id="tradeTableBody" class="bg-white divide-y divide-gray-200">
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Summary Section -->
+    <div id="summary" class="hidden mt-4 p-4 bg-green-50 rounded-md">
+      <h2 class="text-lg font-semibold text-green-800">Trading Summary</h2>
+      <div id="summaryContent" class="mt-2 text-sm text-green-700">
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
+
+// popup.js
+document.addEventListener('DOMContentLoaded', function() {
+  const generateTableBtn = document.getElementById('generateTable');
+  const tradeTable = document.getElementById('tradeTable');
+  const tradeTableBody = document.getElementById('tradeTableBody');
+  const summary = document.getElementById('summary');
+  const summaryContent = document.getElementById('summaryContent');
+
+  generateTableBtn.addEventListener('click', function() {
+    const initialStake = parseFloat(document.getElementById('initialStake').value);
+    const maxStake = parseFloat(document.getElementById('maxStake').value);
+    const targetAmount = parseFloat(document.getElementById('targetAmount').value);
+    const profitRate = parseFloat(document.getElementById('profitRate').value) / 100;
+    
+    if (!initialStake || !maxStake || !targetAmount || !profitRate) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    generateTradeTable(initialStake, maxStake, targetAmount, profitRate);
+  });
+
+  function updateSummary(achievedGoals, totalTrades, finalBalance) {
+    summary.classList.remove('hidden');
+    summaryContent.innerHTML = `
+      <p>Total Trades: ${totalTrades}</p>
+      <p>Goals Achieved: ${achievedGoals}</p>
+      <p>Final Balance: ₦${finalBalance.toLocaleString()}</p>
+      <p>Achievement Rate: ${((achievedGoals/totalTrades) * 100).toFixed(1)}%</p>
+    `;
+  }
+
+  function generateTradeTable(initialStake, maxStake, targetAmount, profitRate) {
+    tradeTableBody.innerHTML = '';
+    tradeTable.classList.remove('hidden');
+    
+    let currentBalance = initialStake;
+    let tradeNo = 1;
+    let achievedGoals = 0;
+    
+    while (currentBalance < targetAmount && initialStake * Math.pow(2, tradeNo - 1) <= maxStake) {
+      const currentStake = Math.min(initialStake * Math.pow(2, tradeNo - 1), maxStake);
+      const profit = currentStake * profitRate;
+      currentBalance += profit;
+      
+      const row = document.createElement('tr');
+      const isGoalAchieved = currentBalance >= targetAmount;
+      if (isGoalAchieved) achievedGoals++;
+      
+      row.innerHTML = `
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${tradeNo}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date().toLocaleDateString()}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₦${currentStake.toLocaleString()}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₦${profit.toLocaleString()}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₦${currentBalance.toLocaleString()}</td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm">
+          <input type="checkbox" 
+                 class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                 ${isGoalAchieved ? 'checked disabled' : ''}
+                 onchange="this.parentElement.classList.toggle('bg-green-100')">
+        </td>
+      `;
+      
+      tradeTableBody.appendChild(row);
+      tradeNo++;
+    }
+
+    updateSummary(achievedGoals, tradeNo - 1, currentBalance);
+  }
+});
